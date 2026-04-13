@@ -1,12 +1,10 @@
 from flask import Flask, request, jsonify, render_template_string
 import time
-import threading
 
 app = Flask(__name__)
 
 servers = []
 logs = []
-active_users = {}  # username: {avatar, timestamp}
 
 HTML = """
 <!DOCTYPE html>
@@ -21,21 +19,11 @@ HTML = """
     <h1 class="text-4xl font-bold text-green-400 mb-2">ROBLOX JOINER</h1>
     <p class="text-zinc-400 mb-8">Live Dashboard • Mise à jour toutes les 8 secondes</p>
 
-    <!-- Active Users -->
-    <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-3">👥 Personnes actives</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="active">
-            <!-- Rempli par JS -->
-        </div>
-    </div>
-
-    <!-- Recent Servers -->
     <div class="mb-8">
         <h2 class="text-xl font-semibold mb-3">📡 Serveurs détectés</h2>
         <div id="servers" class="space-y-3"></div>
     </div>
 
-    <!-- Logs -->
     <div>
         <h2 class="text-xl font-semibold mb-3">📜 Logs récents</h2>
         <div id="logs" class="bg-zinc-900 p-4 rounded-xl text-sm font-mono text-green-300 overflow-auto max-h-64"></div>
@@ -58,9 +46,9 @@ function updateDashboard() {
         });
         document.getElementById('servers').innerHTML = html || '<p class="text-zinc-500">Aucun serveur pour l’instant...</p>';
     });
-
-    // Active users (simulé pour l’instant)
-    // On peut l'améliorer plus tard avec /ping
+    fetch('/get_logs').then(r => r.json()).then(data => {
+        document.getElementById('logs').innerHTML = data.join('<br>') || 'Aucun log';
+    });
 }
 setInterval(updateDashboard, 8000);
 updateDashboard();
@@ -89,20 +77,12 @@ def add_server():
 
 @app.route('/get_servers')
 def get_servers():
+    # Retourne les serveurs avec leur timestamp
     return jsonify(servers[-20:])
 
-@app.route('/ping', methods=['POST'])
-def ping():
-    data = request.get_json()
-    if data and data.get('username'):
-        username = data['username']
-        masked = username[:3] + "******"
-        active_users[username] = {
-            "masked": masked,
-            "avatar": f"https://www.roblox.com/headshot-thumbnail/image?userId={data.get('userId', 1)}&width=48&height=48&format=Png",
-            "time": time.time()
-        }
-    return jsonify({"status": "ok"})
+@app.route('/get_logs')
+def get_logs():
+    return jsonify(logs[-20:])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
